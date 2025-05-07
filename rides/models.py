@@ -54,7 +54,27 @@ class Ride(models.Model):
     dropoff_longitude = models.FloatField()
     pickup_time = models.DateTimeField()
 
-    # Add related_name to avoid clashes if User model links back
+    def save(self, *args, **kwargs):
+        # Check if this is an existing ride
+        if self.pk:
+            # Get the old status from the database
+            old_ride = Ride.objects.get(pk=self.pk)
+            old_status = old_ride.status
+            
+            # If status changed to pickup or dropoff, create an event
+            if self.status != old_status:
+                if self.status == 'pickup':
+                    RideEvent.objects.create(
+                        ride=self,
+                        description='Status changed to pickup'
+                    )
+                elif self.status == 'dropoff':
+                    RideEvent.objects.create(
+                        ride=self,
+                        description='Status changed to dropoff'
+                    )
+        
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Ride {self.id_ride} ({self.status})"

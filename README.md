@@ -217,7 +217,7 @@ curl -X POST "http://localhost:8000/api/rides/5/events/" \
 
 ## SQL Report Query
 
-For reporting purposes, here's the SQL query to count trips that took more than 1 hour from Pickup to Dropoff, grouped by Month and Driver:
+For reporting purposes, here's the SQL query to calculate trip durations and count trips that took more than 1 hour, grouped by Month and Driver:
 
 ```sql
 WITH ride_durations AS (
@@ -226,6 +226,7 @@ WITH ride_durations AS (
         r.driver_id,
         u.first_name || ' ' || u.last_name AS driver_name,
         DATE_TRUNC('month', r.pickup_time) AS month,
+        -- Calculate duration between pickup and dropoff events
         MAX(CASE WHEN re.description = 'Status changed to dropoff' THEN re.created_at END) -
         MAX(CASE WHEN re.description = 'Status changed to pickup' THEN re.created_at END) AS duration
     FROM rides_ride r
@@ -237,12 +238,24 @@ WITH ride_durations AS (
 SELECT 
     TO_CHAR(month, 'YYYY-MM') AS month,
     driver_name AS driver,
-    COUNT(*) AS "Count of Trips > 1 hr"
+    COUNT(*) AS "Count of Trips > 1 hr",
+    AVG(EXTRACT(EPOCH FROM duration)/3600)::numeric(10,2) AS "Avg Duration (hours)"
 FROM ride_durations
 WHERE duration > INTERVAL '1 hour'
 GROUP BY month, driver_name
 ORDER BY month, driver_name;
 ```
+
+This query:
+1. Creates a CTE (Common Table Expression) to calculate trip durations
+2. Joins the Ride, RideEvent, and User tables
+3. Uses CASE statements to find pickup and dropoff timestamps
+4. Calculates the duration between these events
+5. Groups results by month and driver
+6. Shows:
+   - Number of trips longer than 1 hour
+   - Average duration of these trips
+7. Orders results chronologically by month and alphabetically by driver name
 
 ## Design Decisions
 
