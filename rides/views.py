@@ -33,6 +33,22 @@ class IsAdminUser(permissions.BasePermission):
             return bool(request.user and request.user.is_authenticated)
         return request.user and request.user.role == 'admin'
 
+class RideEventViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for RideEvent model.
+    Handles CRUD operations for ride events.
+    """
+    serializer_class = RideEventSerializer
+    permission_classes = [IsAdminOrDriverUser]
+
+    def get_queryset(self):
+        ride_id = self.kwargs.get('ride_pk')
+        return RideEvent.objects.filter(ride_id=ride_id)
+
+    def perform_create(self, serializer):
+        ride_id = self.kwargs.get('ride_pk')
+        serializer.save(ride_id=ride_id)
+
 class RideViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Ride model with optimized queries and filtering.
@@ -48,6 +64,23 @@ class RideViewSet(viewsets.ModelViewSet):
     filterset_fields = ['status', 'rider__email']
     ordering_fields = ['pickup_time', 'distance_to_pickup']
     ordering = ['-pickup_time']  # Default ordering
+
+    @action(detail=True, methods=['get', 'post'])
+    def events(self, request, pk=None):
+        """
+        List or create events for a specific ride.
+        """
+        ride = self.get_object()
+        if request.method == 'GET':
+            events = RideEvent.objects.filter(ride=ride)
+            serializer = RideEventSerializer(events, many=True)
+            return Response(serializer.data)
+        elif request.method == 'POST':
+            serializer = RideEventSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(ride=ride)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get_queryset(self):
         """

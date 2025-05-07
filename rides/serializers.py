@@ -58,6 +58,18 @@ class RideSerializer(serializers.ModelSerializer):
     """
     rider = UserSerializer(read_only=True)
     driver = UserSerializer(read_only=True)
+    rider_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='rider'),
+        source='rider',
+        write_only=True,
+        required=True
+    )
+    driver_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='driver'),
+        source='driver',
+        write_only=True,
+        required=False
+    )
     todays_ride_events = serializers.SerializerMethodField()
     distance_to_pickup = serializers.SerializerMethodField()
 
@@ -71,7 +83,9 @@ class RideSerializer(serializers.ModelSerializer):
         Returns ride events from the last 24 hours.
         This method is optimized to work with prefetch_related in the view.
         """
-        # The actual filtering is done in the view using Prefetch
+        # Check if todays_ride_events exists (it will be set by the Prefetch in the view)
+        if not hasattr(obj, 'todays_ride_events'):
+            return []
         return RideEventSerializer(obj.todays_ride_events, many=True).data
 
     def get_distance_to_pickup(self, obj):

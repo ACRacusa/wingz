@@ -139,9 +139,8 @@ curl -X POST "http://localhost:8000/api/rides/" \
   -H "Authorization: Basic $(echo -n 'admin:password' | base64)" \
   -H "Content-Type: application/json" \
   -d '{
-    "status": "pending",
-    "rider": 1,
-    "driver": 2,
+    "rider_id": 1,           # Required: ID of an existing rider user
+    "driver_id": 2,          # Optional: ID of an existing driver user
     "pickup_latitude": 37.7749,
     "pickup_longitude": -122.4194,
     "dropoff_latitude": 37.7833,
@@ -149,6 +148,12 @@ curl -X POST "http://localhost:8000/api/rides/" \
     "pickup_time": "2024-05-04T10:00:00Z"
   }'
 ```
+
+Note: When creating a new ride:
+- `rider_id` is required and must reference an existing user with role='rider'
+- `driver_id` is optional and must reference an existing user with role='driver' if provided
+- The response will include the full rider and driver objects with all their details
+- The status will default to 'pending' if not specified
 
 ### Updating a Ride
 ```bash
@@ -169,6 +174,28 @@ curl -X PUT "http://localhost:8000/api/rides/1/" \
 ```bash
 curl -X DELETE "http://localhost:8000/api/rides/1/" \
   -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+```
+
+### Managing Ride Events
+```bash
+# List events for a specific ride
+curl -X GET "http://localhost:8000/api/rides/5/events/" \
+  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+
+# Create a new event for a ride
+curl -X POST "http://localhost:8000/api/rides/5/events/" \
+  -H "Authorization: Basic $(echo -n 'admin:password' | base64)" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Status changed to en-route"
+  }'
+
+# Response example:
+{
+    "id_ride_event": 1,
+    "description": "Status changed to en-route",
+    "created_at": "2024-05-07T16:03:53Z"
+}
 ```
 
 ## Performance Optimizations
