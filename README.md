@@ -9,7 +9,6 @@ A Django REST Framework API for managing ride information with optimized perform
 - Efficient query optimization for large datasets
 - Support for filtering and sorting
 - Pagination support
-- Distance-based sorting with GPS coordinates
 - Optimized retrieval of today's ride events
 
 ## Setup
@@ -43,22 +42,31 @@ python manage.py runserver
 ## API Usage Examples
 
 ### Authentication
-First, you need to authenticate as an admin user:
+First, you need to authenticate to get a token:
 ```bash
-# Using Basic Auth
-curl -X GET http://localhost:8000/api/rides/ \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+# Login to get token
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "admin"
+  }'
 
-# Using Session Auth (after logging in through the browser)
+# Response:
+{
+    "token": "your_auth_token_here"
+}
+
+# Use the token in subsequent requests
 curl -X GET http://localhost:8000/api/rides/ \
-  -H "Cookie: sessionid=your_session_id"
+  -H "Authorization: Token your_auth_token_here"
 ```
 
 ### List Rides with Pagination
 ```bash
 # Get first page of rides
 curl -X GET "http://localhost:8000/api/rides/?page=1" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+  -H "Authorization: Token your_auth_token_here"
 
 # Response example:
 {
@@ -107,36 +115,36 @@ curl -X GET "http://localhost:8000/api/rides/?page=1" \
 ```bash
 # Filter by status
 curl -X GET "http://localhost:8000/api/rides/?status=en-route" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+  -H "Authorization: Token your_auth_token_here"
 
 # Filter by rider email
 curl -X GET "http://localhost:8000/api/rides/?rider__email=john@example.com" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+  -H "Authorization: Token your_auth_token_here"
 
 # Combine filters
 curl -X GET "http://localhost:8000/api/rides/?status=en-route&rider__email=john@example.com" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+  -H "Authorization: Token your_auth_token_here"
 ```
 
 ### Sorting Rides
 ```bash
 # Sort by pickup time (ascending)
 curl -X GET "http://localhost:8000/api/rides/?ordering=pickup_time" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+  -H "Authorization: Token your_auth_token_here"
 
 # Sort by pickup time (descending)
 curl -X GET "http://localhost:8000/api/rides/?ordering=-pickup_time" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+  -H "Authorization: Token your_auth_token_here"
 
 # Sort by distance to pickup (requires latitude and longitude)
 curl -X GET "http://localhost:8000/api/rides/?ordering=distance_to_pickup&latitude=37.7749&longitude=-122.4194" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
+  -H "Authorization: Token your_auth_token_here"
 ```
 
 ### Creating a New Ride
 ```bash
 curl -X POST "http://localhost:8000/api/rides/" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)" \
+  -H "Authorization: Token your_auth_token_here" \
   -H "Content-Type: application/json" \
   -d '{
     "rider_id": 1,           # Required: ID of an existing rider user
@@ -149,16 +157,32 @@ curl -X POST "http://localhost:8000/api/rides/" \
   }'
 ```
 
-Note: When creating a new ride:
-- `rider_id` is required and must reference an existing user with role='rider'
-- `driver_id` is optional and must reference an existing user with role='driver' if provided
-- The response will include the full rider and driver objects with all their details
-- The status will default to 'pending' if not specified
+### Managing Ride Events
+```bash
+# List events for a specific ride
+curl -X GET "http://localhost:8000/api/rides/5/events/" \
+  -H "Authorization: Token your_auth_token_here"
+
+# Create a new event for a ride
+curl -X POST "http://localhost:8000/api/rides/5/events/" \
+  -H "Authorization: Token your_auth_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Status changed to en-route"
+  }'
+
+# Response example:
+{
+    "id_ride_event": 1,
+    "description": "Status changed to en-route",
+    "created_at": "2024-05-07T16:03:53Z"
+}
+```
 
 ### Updating a Ride
 ```bash
 curl -X PUT "http://localhost:8000/api/rides/1/" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)" \
+  -H "Authorization: Token your_auth_token_here" \
   -H "Content-Type: application/json" \
   -d '{
     "status": "completed",
@@ -173,29 +197,7 @@ curl -X PUT "http://localhost:8000/api/rides/1/" \
 ### Deleting a Ride
 ```bash
 curl -X DELETE "http://localhost:8000/api/rides/1/" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
-```
-
-### Managing Ride Events
-```bash
-# List events for a specific ride
-curl -X GET "http://localhost:8000/api/rides/5/events/" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)"
-
-# Create a new event for a ride
-curl -X POST "http://localhost:8000/api/rides/5/events/" \
-  -H "Authorization: Basic $(echo -n 'admin:password' | base64)" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "description": "Status changed to en-route"
-  }'
-
-# Response example:
-{
-    "id_ride_event": 1,
-    "description": "Status changed to en-route",
-    "created_at": "2024-05-07T16:03:53Z"
-}
+  -H "Authorization: Token your_auth_token_here"
 ```
 
 ## Performance Optimizations
@@ -217,7 +219,7 @@ curl -X POST "http://localhost:8000/api/rides/5/events/" \
 
 ## SQL Report Query
 
-For reporting purposes, here's the SQL query to calculate trip durations and count trips that took more than 1 hour, grouped by Month and Driver:
+Here's a SQL query that analyzes ride durations by driver and month:
 
 ```sql
 WITH ride_durations AS (
@@ -245,48 +247,3 @@ WHERE duration > INTERVAL '1 hour'
 GROUP BY month, driver_name
 ORDER BY month, driver_name;
 ```
-
-This query:
-1. Creates a CTE (Common Table Expression) to calculate trip durations
-2. Joins the Ride, RideEvent, and User tables
-3. Uses CASE statements to find pickup and dropoff timestamps
-4. Calculates the duration between these events
-5. Groups results by month and driver
-6. Shows:
-   - Number of trips longer than 1 hour
-   - Average duration of these trips
-7. Orders results chronologically by month and alphabetically by driver name
-
-## Design Decisions
-
-1. **Custom User Model**:
-   - Extended Django's AbstractUser to maintain authentication features
-   - Added role-based access control
-   - Maintained compatibility with Django's auth system
-
-2. **Query Optimization**:
-   - Used raw SQL for distance calculations to avoid Python-level computation
-   - Implemented efficient prefetching for related data
-   - Optimized filtering and sorting operations
-
-3. **API Design**:
-   - Used ViewSets for consistent CRUD operations
-   - Implemented custom permissions for admin-only access
-   - Added comprehensive filtering and sorting capabilities
-
-## Challenges and Solutions
-
-1. **Large Dataset Handling**:
-   - Implemented efficient query optimization
-   - Used database-level operations where possible
-   - Minimized data transfer with selective field serialization
-
-2. **Distance Calculation**:
-   - Used Haversine formula in raw SQL for performance
-   - Implemented caching for repeated calculations
-   - Added error handling for invalid coordinates
-
-3. **Authentication**:
-   - Implemented role-based access control
-   - Used Django's built-in authentication system
-   - Added custom permission classes for admin access 
