@@ -95,15 +95,18 @@ class RideViewSet(viewsets.ModelViewSet):
             lat = self.request.query_params.get('latitude')
             lon = self.request.query_params.get('longitude')
             if lat and lon:
-                # Add distance annotation using raw SQL for better performance
+                # Add distance annotation using simplified Haversine formula
                 queryset = queryset.extra(
                     select={
                         'distance_to_pickup': """
-                            ROUND(6371 * 2 * ASIN(SQRT(
-                                POWER(SIN((RADIANS(%s - pickup_latitude)) / 2), 2) +
-                                COS(RADIANS(pickup_latitude)) * COS(RADIANS(%s)) *
-                                POWER(SIN((RADIANS(%s - pickup_longitude)) / 2), 2)
-                            )), 2)
+                            6371 * 2 * ASIN(
+                                SQRT(
+                                    POWER(SIN(RADIANS(%s - pickup_latitude) / 2), 2) +
+                                    COS(RADIANS(pickup_latitude)) * 
+                                    COS(RADIANS(%s)) * 
+                                    POWER(SIN(RADIANS(%s - pickup_longitude) / 2), 2)
+                                )
+                            )
                         """
                     },
                     select_params=[lat, lat, lon]
