@@ -83,7 +83,6 @@ class RideSerializer(serializers.ModelSerializer):
         Returns ride events from the last 24 hours.
         This method is optimized to work with prefetch_related in the view.
         """
-        # Check if todays_ride_events exists (it will be set by the Prefetch in the view)
         if not hasattr(obj, 'todays_ride_events'):
             return []
         return RideEventSerializer(obj.todays_ride_events, many=True).data
@@ -103,7 +102,6 @@ class RideSerializer(serializers.ModelSerializer):
             lat2 = obj.pickup_latitude
             lon2 = obj.pickup_longitude
 
-            # Haversine formula implementation using math functions
             R = 6371  # Earth's radius in kilometers
             dLat = math.radians(lat2 - lat1)
             dLon = math.radians(lon2 - lon1)
@@ -113,6 +111,6 @@ class RideSerializer(serializers.ModelSerializer):
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
             distance = R * c
 
-            return round(distance, 2)  # Return distance in kilometers, rounded to 2 decimal places
+            return round(distance, 2)
         except (ValueError, TypeError):
             return None 
